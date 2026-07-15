@@ -1863,8 +1863,12 @@
           if (result) {
             const ok = normalizeIsbn(result.getText());
             if (ok) onIsbnDetected(ok);
-          } else if (err && !/NotFoundException/.test(err?.name || '')) {
-            $('#camMsg').textContent = `スキャンエラー: ${err.message || err}`;
+         } else if (err) {
+            const errorText = err.message || String(err);
+            // 「見つからない」系のメッセージ（NotFoundException や No MultiFormat Readers）は無視する
+            if (!errorText.includes('NotFoundException') && !errorText.includes('No MultiFormat Readers')) {
+              $('#camMsg').textContent = `スキャンエラー: ${errorText}`;
+            }
           }
         }).then(controls => {
           scanState.zxingControls = controls;
