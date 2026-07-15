@@ -2030,7 +2030,7 @@
           });
         }
 
-        $('#settingsForm').addEventListener('submit', async e => {
+       $('#settingsForm').addEventListener('submit', async e => {
           e.preventDefault();
           const name = $('#nameInput').value.trim();
           if (!name) {
@@ -2038,11 +2038,13 @@
             return;
           }
           try {
-            await callServer('updateUserName', name);
+            // ブラウザに名前を記憶させる
+            localStorage.setItem('userName', name);
             alert('表示名を更新しました。');
             $('#welcome').textContent = `こんにちは、${name}さん`;
+            state.me.name = name;
           } catch (err) {
-            alert(err.message);
+            alert('保存に失敗しました。');
           }
         });
 
@@ -2055,12 +2057,13 @@
         window.addEventListener('pagehide', () => stopCamera());
 
         try {
-          const me = await callServer('getMe');
-          state.me = me;
-          $('#welcome').textContent = `こんにちは、${me.name}さん`;
-          $('#nameInput').value = me.name || '';
+          // ブラウザの記憶領域から名前を取り出す（なければ「ゲスト」にする）
+          const savedName = localStorage.getItem('userName') || 'ゲスト';
+          state.me = { name: savedName };
+          $('#welcome').textContent = `こんにちは、${savedName}さん`;
+          $('#nameInput').value = savedName === 'ゲスト' ? '' : savedName;
         } catch (err) {
-          $('#welcome').textContent = 'ユーザー情報の取得に失敗しました';
+          $('#welcome').textContent = 'ユーザー情報の読み込みに失敗しました';
         }
 
         document.getElementById('app').classList.add('ready');
