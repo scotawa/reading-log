@@ -998,18 +998,55 @@
         paintRatingStars(value);
       };
 
+      // ★ここにGASでデプロイした「ウェブアプリのURL（https://script.google.com/...）」を貼り付けてください
+      const GAS_URL = "https://script.google.com/a/macros/tokushima-ec.ed.jp/s/AKfycbxfz6oSucCRMEiR_E95zouRCOCLlTThW8j5yz6zMB-_eSO9f4vzcBbbnlbJ_icPg_3L0w/exec";
+
       function callServer(method, ...args) {
-        return new Promise((resolve, reject) => {
-          const runner = google.script.run
-            .withSuccessHandler(resolve)
-            .withFailureHandler(err => {
-              const message = err && err.message ? err.message : (typeof err === 'string' ? err : '処理に失敗しました');
-              reject(new Error(message));
-            });
+        return new Promise(async (resolve, reject) => {
           try {
-            runner[method](...args);
+            console.log("呼び出された処理:", method);
+            
+            // ① 本の情報を検索する処理の場合（Google Books APIを直接使う）
+            if (method.toLowerCase().includes('book') || method.toLowerCase().includes('lookup') || method.toLowerCase().includes('search')) {
+              const isbn = args[0];
+              const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+              const data = await res.json();
+              if (data.items && data.items.length > 0) {
+                const info = data.items[0].volumeInfo;
+                resolve({
+                  title: info.title || '',
+                  author: (info.authors || []).join(', '),
+                  publisher: info.publisher || '',
+                  pages: info.pageCount || '',
+                  coverUrl: info.imageLinks ? info.imageLinks.thumbnail : ''
+                });
+              } else {
+                reject(new Error('本の情報が見つかりませんでした。手入力してください。'));
+              }
+              return;
+            }
+
+            // ② 記録を保存する処理の場合（GASへ送信する）
+            if (method.toLowerCase().includes('save') || method.toLowerCase().includes('add') || method.toLowerCase().includes('record')) {
+               const recordData = args[0]; // 保存するデータ
+               const res = await fetch(GAS_URL, {
+                 method: 'POST',
+                 body: JSON.stringify(recordData) // isbnやtitleが入ったデータを送信
+               });
+               const result = await res.json();
+               if (result.status === 'success') {
+                 resolve(result);
+               } else {
+                 reject(new Error(result.message || '保存に失敗しました'));
+               }
+               return;
+            }
+            
+            // ③ その他のデータ読み込み処理などは、ひとまず空のデータを返す
+            resolve([]);
+
           } catch (e) {
-            reject(e);
+            reject(new Error(e.message || '通信エラーが発生しました'));
           }
         });
       }
