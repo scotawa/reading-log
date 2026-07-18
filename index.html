@@ -1050,6 +1050,9 @@
                const recordData = args[0]; // 保存するデータ
                const res = await fetch(GAS_URL, {
                  method: 'POST',
+                 headers: {
+                   "Content-Type": "text/plain" // ★この3行を追加します
+                 },
                  body: JSON.stringify(recordData)
                });
                const result = await res.json();
