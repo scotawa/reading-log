@@ -998,7 +998,7 @@
         paintRatingStars(value);
       };
 
-     // ★ここにGASでデプロイした「ウェブアプリのURL（https://script.google.com/...）」を貼り付けてください
+     // ★ここに新しく発行した「個人のGASウェブアプリURL」を貼り付けてください
       const GAS_URL = "https://script.google.com/macros/s/AKfycbw5M1QQogm7zoWvCWwwE00QjaZAyqIB1GqQwzWqCcEeqazHiLA7aZLakt4FNSAWaMc8OA/exec";
 
       function callServer(method, ...args) {
@@ -1006,35 +1006,25 @@
           try {
             console.log("呼び出された処理:", method);
             
-            // ① 本の情報を検索する処理の場合（名前が完全一致した時だけ実行）
+            // ① 本の情報を検索する処理（ここは前回と同じです）
             if (method === 'fetchBookInfo') {
               const isbn = String(args[0]).replace(/-/g, '');
               try {
-                // 第1ルート：openBD
                 const res = await fetch(`https://api.openbd.jp/v1/get?isbn=${isbn}`);
                 const data = await res.json();
                 if (data && data.length > 0 && data[0] !== null) {
                   const info = data[0].summary;
                   resolve({
-                    title: info.title || '',
-                    author: info.author || '',
-                    publisher: info.publisher || '',
-                    pages: '',
-                    coverUrl: info.cover || ''
+                    title: info.title || '', author: info.author || '', publisher: info.publisher || '', pages: '', coverUrl: info.cover || ''
                   });
                   return;
                 }
-                // 第2ルート：Google Books
                 const gRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
                 const gData = await gRes.json();
                 if (gData.items && gData.items.length > 0) {
                   const gInfo = gData.items[0].volumeInfo;
                   resolve({
-                    title: gInfo.title || '',
-                    author: (gInfo.authors || []).join(', '),
-                    publisher: gInfo.publisher || '',
-                    pages: gInfo.pageCount || '',
-                    coverUrl: gInfo.imageLinks ? gInfo.imageLinks.thumbnail : ''
+                    title: gInfo.title || '', author: (gInfo.authors || []).join(', '), publisher: gInfo.publisher || '', pages: gInfo.pageCount || '', coverUrl: gInfo.imageLinks ? gInfo.imageLinks.thumbnail : ''
                   });
                   return;
                 }
@@ -1045,41 +1035,25 @@
               return;
             }
 
-            // ② 記録を保存する処理の場合
-            if (method === 'logFinishedBook') {
-               const recordData = args[0]; // 保存するデータ
-               const res = await fetch(GAS_URL, {
-                 method: 'POST',
-                 headers: {
-                   "Content-Type": "text/plain" // ★この3行を追加します
-                 },
-                 body: JSON.stringify(recordData)
-               });
-               const result = await res.json();
-               
-               if (result.status === 'success') {
-                 // 画面の一覧にすぐ表示させるためのデータを作成して返す
-                 result.log = {
-                   logId: Date.now().toString(),
-                   isbn: recordData.isbn,
-                   title: recordData.title,
-                   author: recordData.author,
-                   publisher: recordData.publisher,
-                   pageCount: recordData.pageCount,
-                   readAt: recordData.readAt,
-                   coverUrl: recordData.coverUrl,
-                   rating: recordData.rating,
-                   comment: recordData.comment
-                 };
-                 resolve(result);
-               } else {
-                 reject(new Error(result.message || '保存に失敗しました'));
-               }
-               return;
-            }
+            // ② GASにお願いする処理（保存・読み込み・分析データ取得などすべて対応）
+            const res = await fetch(GAS_URL, {
+              method: 'POST',
+              headers: {
+                "Content-Type": "text/plain" // お守りのコードも残しています
+              },
+              body: JSON.stringify({
+                method: method,   // 実行したい命令の名前（保存して、読み込んで、など）
+                data: args[0]     // 一緒に送るデータ
+              })
+            });
+            const result = await res.json();
             
-            // ③ その他のデータ読み込み処理などは、ひとまず空のデータを返す
-            resolve([]);
+            if (result.status === 'success') {
+              // 読み込みの時はデータのリストを、保存の時は結果を返す
+              resolve(result.data !== undefined ? result.data : result);
+            } else {
+              reject(new Error(result.message || '通信に失敗しました'));
+            }
 
           } catch (e) {
             reject(new Error(e.message || '通信エラーが発生しました'));
